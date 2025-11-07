@@ -1,0 +1,29 @@
+vendor: AFS
+product: Markdown to PDF Converter
+name: afs_markdown_to_pdf_converter
+schema: connector/1
+author: Swimlane
+bugs: ''
+iconImage: ../image/logo.png
+description: Converts Markdown text to styled PDF documents with AFS purple theme
+homepage: https://swimlane.com
+keywords:
+  - Swimlane Certified
+license: AGPL-3.0
+meta:
+  imageRepository: quay.io/swimlane-connectors/afs_markdown_to_pdf_converter
+  private: false
+  publishConfig:
+    access: public
+  buildConfig:
+    template: python_311_definition
+  block_short_desc_update: false
+  block_readme_update: false
+  block_external_md_update: false
+  block_external_yml_update: false
+repository: https://github.com/swimlane-connectors/t_afs_markdown_to_pdf_converter
+title: AFS Markdown to PDF Converter
+version: 1.0.0
+runConfig:
+  inputs:
+    type: stdin
