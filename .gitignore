@@ -1,1 +1,4 @@
 .DS_Store
+t_afs_markdown_to_pdf_converter/data/process_report_response_error.txt
+t_afs_markdown_to_pdf_converter/data/process_report_response_output.json
+testscript/* */

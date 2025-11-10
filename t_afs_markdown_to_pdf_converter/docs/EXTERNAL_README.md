@@ -1,4 +1,3 @@
-# docs/EXTERNAL_README.md
 # AFS Markdown to PDF Converter
 
 Convert Markdown-formatted text into professionally styled PDF documents with the AFS purple theme.
