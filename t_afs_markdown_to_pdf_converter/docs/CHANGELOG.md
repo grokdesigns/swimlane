@@ -1,5 +1,19 @@
 # Change Log
 
+## 1.0.2 - 2025-01-16
+
+### Fixed
+* Unordered lists in markdown now properly convert to `<ul>` and `<li>` HTML tags
+  - Fixed issue where lists immediately following text without blank lines were rendered as inline text with `<br/>` tags
+  - Enhanced `clean_markdown()` function to automatically insert blank lines before list items when needed
+  - Ensures proper list rendering in both HTML and PDF output
+
+### Changed
+* Improved code documentation and comments throughout `process_report_response.py`
+  - Removed debugging narratives and bug fix information from inline comments
+  - Simplified function docstrings to be more concise and maintainable
+  - Focused comments on describing what functions do rather than implementation history
+
 ## 1.0.1 - 2025-01-16
 
 ### Added
