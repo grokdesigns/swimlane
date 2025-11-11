@@ -97,8 +97,8 @@ HTML_TEMPLATE = r"""
 
 def _data_uri_for_logo(logo_filename: str) -> Optional[str]:
     """
-    Convert logo file to data URI for embedding in PDF
-    Looks for logo in /app/assets/ directory (inside connector)
+    Convert logo file to data URI for embedding in PDF.
+    Searches for logo in /app/assets/ directory.
     """
     import mimetypes
     
@@ -124,15 +124,12 @@ def _data_uri_for_logo(logo_filename: str) -> Optional[str]:
 
 def process_urls(md_text: str) -> str:
     """
-    Convert bare URLs into clickable markdown links
-    
-    Finds URLs that aren't already wrapped in markdown link syntax
-    and wraps them in angle brackets for auto-linking
+    Convert bare URLs into clickable markdown links by wrapping them in angle brackets.
+    Avoids processing URLs already in markdown link syntax.
     """
     logger.info("Processing URLs for auto-linking")
     
-    # Regex to match URLs (http, https, ftp)
-    # This pattern avoids matching URLs that are already in markdown link syntax
+    # Match URLs not already wrapped in markdown syntax
     url_pattern = r'(?<!\()(https?://[^\s<>\)]+)(?!\))'
     
     def replace_url(match):
@@ -151,85 +148,96 @@ def process_urls(md_text: str) -> str:
 
 def clean_markdown(md_text: str) -> str:
     """
-    Pre-process and clean markdown text to fix common formatting issues
-    
-    Fixes:
-    - Excessive asterisks (****text**** → **text**)
-    - Unclosed bold markers in list items (**Label: text → **Label:** text)
-    - Mixed bold/italic patterns
+    Pre-process markdown text to fix common formatting issues:
+    - Normalizes excessive asterisks (****text**** → **text**)
+    - Closes unclosed bold markers in list items
+    - Adds blank lines before lists for proper parsing
+    - Converts bare URLs to markdown auto-links
     """
     original_length = len(md_text)
     logger.info(f"Starting markdown cleaning: {original_length} characters")
     logger.debug(f"First 500 chars:\n{md_text[:500]}")
     
-    # Step 1: Normalize all sequences of 3+ consecutive asterisks to exactly 2
-    # This handles ****, ***, etc. → **
+    # Normalize sequences of 3+ asterisks to exactly 2
     md_text = re.sub(r'\*{3,}', '**', md_text)
-    logger.info("Step 1: Normalized 3+ asterisks to **")
-    logger.debug(f"After step 1 (first 500):\n{md_text[:500]}")
+    logger.info("Normalized excessive asterisks")
+    logger.debug(f"After normalization (first 500):\n{md_text[:500]}")
     
-    # Step 2: Fix bold patterns in list items specifically
-    # Pattern: - **Label:** content (where Label has unclosed bold)
+    # Fix unclosed bold markers in list items and headers
     lines = []
     for i, line in enumerate(md_text.split('\n'), 1):
         original_line = line
         
-        # Skip empty lines
         if not line.strip():
             lines.append(line)
             continue
         
-        # Check if this is a list item (starts with -, *, or •)
         list_match = re.match(r'^(\s*)([-*•])\s+(.+)$', line)
         
         if list_match:
             indent, marker, content = list_match.groups()
-            
-            # Count ** in the content
             double_ast_count = content.count('**')
             
-            # If odd number of **, we have unclosed bold
+            # Fix unclosed bold markers (odd count of **)
             if double_ast_count % 2 != 0:
-                # Try to fix **Label:** pattern (bold that should close after label)
-                # Match: **text: (with optional space after colon)
                 label_match = re.match(r'^\*\*([^*]+?):\s*(.*)$', content)
                 
                 if label_match:
                     label, rest = label_match.groups()
-                    # Close the bold after the label: **Label:** rest
                     content = f'**{label}:** {rest}'.strip()
-                    logger.info(f"Line {i}: Fixed list item label bold: {original_line[:60]} -> {indent}{marker} {content[:60]}")
+                    logger.info(f"Line {i}: Fixed list item label bold")
                 else:
-                    # Just close bold at end of line
                     content = content.rstrip() + '**'
-                    logger.info(f"Line {i}: Closed bold at end of list item: {original_line[:60]}")
+                    logger.info(f"Line {i}: Closed bold at end of list item")
                 
                 line = f"{indent}{marker} {content}"
         else:
-            # For non-list lines, check for unclosed bold
             double_ast_count = line.count('**')
             
             if double_ast_count % 2 != 0:
-                # Check if it's a standalone header like **Header:**
                 if line.strip().startswith('**') and ':' in line:
-                    # Try to close after the colon
                     line = re.sub(r'^\*\*([^*]+?):\s*$', r'**\1:**', line)
-                    logger.info(f"Line {i}: Fixed header bold: {original_line[:60]} -> {line[:60]}")
+                    logger.info(f"Line {i}: Fixed header bold")
                 else:
-                    # Close at end
                     line = line.rstrip() + '**'
-                    logger.info(f"Line {i}: Closed bold at end: {original_line[:60]}")
+                    logger.info(f"Line {i}: Closed bold at end")
         
         lines.append(line)
     
     md_text = '\n'.join(lines)
     
-    logger.info("Step 2: Fixed unclosed bold markers in list items")
-    logger.debug(f"After step 2 (first 500):\n{md_text[:500]}")
+    logger.info("Fixed unclosed bold markers")
+    logger.debug(f"After bold fixes (first 500):\n{md_text[:500]}")
     
-    # Step 3: Process URLs for auto-linking
+    # Add blank lines before lists for proper markdown parsing
+    lines = md_text.split('\n')
+    result_lines = []
+    prev_line_was_blank = True
+    prev_line_was_list = False
+    
+    for line in lines:
+        stripped = line.lstrip()
+        is_list_item = stripped.startswith(('- ', '* ', '+ ', '• '))
+        is_blank = not line.strip()
+        
+        # Insert blank line before list if needed for proper parsing
+        if is_list_item and not prev_line_was_blank and not prev_line_was_list:
+            result_lines.append('')
+            logger.debug(f"Added blank line before list item: {line[:50]}")
+        
+        result_lines.append(line)
+        
+        prev_line_was_blank = is_blank
+        prev_line_was_list = is_list_item
+    
+    md_text = '\n'.join(result_lines)
+    
+    logger.info("Added blank lines before list items")
+    logger.debug(f"After list formatting (first 500):\n{md_text[:500]}")
+    
+    # Process URLs for auto-linking
     md_text = process_urls(md_text)
-    logger.debug(f"After step 3 (first 500):\n{md_text[:500]}")
+    logger.debug(f"After URL processing (first 500):\n{md_text[:500]}")
     
     logger.info(f"Markdown cleaning complete: {len(md_text)} characters")
     
@@ -237,8 +245,7 @@ def clean_markdown(md_text: str) -> str:
 
 
 def md_to_html(md_text: str) -> str:
-    """Convert Markdown to clean HTML"""
-    # Clean markdown before conversion
+    """Convert markdown to HTML with cleaning and formatting"""
     cleaned_md = clean_markdown(md_text)
     html = markdown(cleaned_md, extensions=["extra", "sane_lists", "smarty", "nl2br"], output_format="html5")
     return str(BeautifulSoup(html, "html.parser"))
@@ -246,7 +253,7 @@ def md_to_html(md_text: str) -> str:
 
 def build_document_html(markdown_text: str, document_title: str, include_timestamp: bool,
                         footer_logo_data: Optional[str], footer_logo_height_mm: float) -> str:
-    """Build complete HTML document with styling"""
+    """Build complete HTML document with AFS purple theme styling"""
     css = Template(THEME_CSS).render(
         doc_title_css=(document_title or "Report").replace('"', '\\"'),
         footer_logo_data=footer_logo_data or "",
@@ -262,10 +269,7 @@ def build_document_html(markdown_text: str, document_title: str, include_timesta
 
 
 class RunnerOverride(RO):
-    """
-    Process Report Response Action
-    Converts Markdown to PDF with AFS purple theme
-    """
+    """Converts Markdown text to professionally styled PDF documents"""
 
     def __init__(self, asset, asset_schema, http_proxy):
         super().__init__(asset, asset_schema, http_proxy)
@@ -274,22 +278,21 @@ class RunnerOverride(RO):
 
     def run(self, inputs, action_schema):
         """
-        Main execution method called by Turbine
+        Convert markdown text to PDF with professional styling.
         
         Args:
-            inputs: Dictionary containing action inputs
+            inputs: Dictionary containing markdown_text, document_title, include_timestamp
             action_schema: Action schema definition
             
         Returns:
-            Dictionary containing action outputs
+            Dictionary with success status, message, pdf_content (base64), html_content (base64)
         """
         try:
-            # Extract inputs
             markdown_text = inputs.get('markdown_text', '')
             document_title = inputs.get('document_title', 'Security Report')
             include_timestamp = inputs.get('include_timestamp', True)
             
-            # Validate input
+            # Validate inputs
             if not markdown_text or not markdown_text.strip():
                 self.logger.warning("Empty markdown text provided")
                 return {
@@ -311,10 +314,8 @@ class RunnerOverride(RO):
             self.logger.info(f"Converting Markdown to PDF: '{document_title}' ({len(markdown_text)} characters)")
             self.logger.debug("Pre-processing markdown to clean formatting issues")
             
-            # Load default footer logo (built into container)
             footer_logo_data = _data_uri_for_logo(DEFAULT_FOOTER_LOGO)
             
-            # Build HTML document
             self.logger.debug("Building HTML document with AFS purple theme")
             html_str = build_document_html(
                 markdown_text,
@@ -324,11 +325,8 @@ class RunnerOverride(RO):
                 DEFAULT_FOOTER_LOGO_HEIGHT_MM
             )
             
-            # Generate PDF
             self.logger.debug("Generating PDF document")
             pdf_buffer = HTML(string=html_str, base_url="/app").write_pdf()
-            
-            # Encode as base64
             pdf_base64 = base64.b64encode(pdf_buffer).decode('utf-8')
             html_base64 = base64.b64encode(html_str.encode('utf-8')).decode('utf-8')
             
