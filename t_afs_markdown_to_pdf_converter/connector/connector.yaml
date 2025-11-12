@@ -5,7 +5,7 @@ schema: connector/1
 author: Chris Caraccioli
 bugs: ''
 iconImage: ../image/logo.png
-description: Converts Markdown text to styled PDF documents with AFS purple theme
+description: Converts Markdown text to styled PDF documents
 homepage: https://swimlane.com
 keywords:
   - Swimlane Certified
