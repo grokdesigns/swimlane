@@ -1,6 +1,6 @@
 # Change Log
 
-## 1.0.2 - 2025-01-16
+## 1.0.2 - 2025-11-11
 
 ### Fixed
 * Unordered lists in markdown now properly convert to `<ul>` and `<li>` HTML tags
@@ -14,7 +14,7 @@
   - Simplified function docstrings to be more concise and maintainable
   - Focused comments on describing what functions do rather than implementation history
 
-## 1.0.1 - 2025-01-16
+## 1.0.1 - 2025-11-10
 
 ### Added
 * HTML content output: Now returns both `pdf_content` and `html_content` (base64-encoded) for greater flexibility
@@ -40,7 +40,7 @@
 * List items with labels now correctly apply bold formatting
 * URLs in reports are now properly clickable
 
-## 1.0.0 - 2025-01-15
+## 1.0.0 - 2025-11-06
 
 * Initial Release
   * Process Report Response action: Convert Markdown to styled PDF
