@@ -1,5 +1,10 @@
 # Change Log
 
+## 1.0.3 - 2025-11-17
+
+### Added
+* Support for timeline visualizations.
+
 ## 1.0.2 - 2025-11-11
 
 ### Fixed

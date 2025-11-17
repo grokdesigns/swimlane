@@ -49,12 +49,12 @@ html { font:300 11pt "Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetic
 body { margin:0; }
 
 h1 { font-size:22pt; color:#5B2A86; margin:0 0 .5em; }
-h2 { string-set: section content(); font-size:15pt; border-bottom:2px solid #5B2A86; padding-bottom:3pt; margin-top:1.5em; color:#2d2a2e; }
-h3 { font-size:13pt; color:#4a3a6b; margin-top:1em; }
+h2 { string-set: section content(); font-size:15pt; border-bottom:2px solid #5B2A86; padding-bottom:3pt; margin-top:1.5em; color:#2d2a2e; page-break-after:avoid; }
+h3 { font-size:13pt; color:#4a3a6b; margin-top:1em; page-break-after:avoid; }
 
-p, li { color:#111; }
+p, li { color:#111; orphans:3; widows:3; }
 a { color:#5B2A86; text-decoration:none; }
-ul, ol { margin:.5em 0 .5em 1.2em; }
+ul, ol { margin:.5em 0 .5em 1.2em; page-break-inside:avoid; page-break-before:avoid; }
 li { margin:.15em 0; }
 
 blockquote { border-left:3px solid #5B2A86; margin:.8em 0; padding:.5em 1em; color:#444; background:#f9f7fc; }
@@ -73,6 +73,76 @@ em, i { font-style: italic; }
 
 h2, h3, blockquote, table, pre { page-break-inside:avoid; }
 hr { border:none; border-top:1px solid #e2e8f0; margin:12pt 0; }
+
+/* Visual Timeline Styles */
+.timeline-heading {
+  font-size: 11pt;
+  font-weight: 700;
+  color: #2d2a2e;
+  margin-top: 1em;
+  margin-bottom: 0.8em;
+}
+
+.timeline-container {
+  margin: 0 0 1.5em 0;
+  padding: 0;
+  page-break-inside: avoid;
+}
+
+.timeline-entry {
+  display: flex;
+  padding-bottom: 1.5em;
+  page-break-inside: avoid;
+}
+
+.timeline-entry:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-marker-wrapper {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 1.5em;
+}
+
+.timeline-marker {
+  width: 12px;
+  height: 12px;
+  background: #5B2A86;
+  border: 3px solid #f9f7fc;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.timeline-line {
+  width: 2px;
+  flex: 1;
+  background: #5B2A86;
+  opacity: 0.4;
+  margin-top: 0.3em;
+  min-height: 2em;
+}
+
+.timeline-content {
+  flex: 1;
+  padding-top: 0;
+}
+
+.timeline-time {
+  font-size: 9.5pt;
+  font-weight: 600;
+  color: #5B2A86;
+  margin-bottom: 0.2em;
+  letter-spacing: 0.3px;
+}
+
+.timeline-event {
+  font-size: 10.5pt;
+  color: #2d2a2e;
+  line-height: 1.5;
+}
 """
 
 HTML_TEMPLATE = r"""
@@ -120,6 +190,139 @@ def _data_uri_for_logo(logo_filename: str) -> Optional[str]:
     
     logger.error(f"Logo file not found: {logo_path}")
     return None
+
+
+def parse_timeline(md_text: str) -> list:
+    """
+    Parse timeline entries from markdown text.
+    Looks for sections titled "Timeline" or "Incident Timeline" followed by date/event entries.
+    
+    Returns list of tuples: [(datetime_str, event_description), ...]
+    """
+    timeline_entries = []
+    
+    # Pattern to match timeline headers (case-insensitive)
+    timeline_header_pattern = r'\*{0,4}(Incident )?Timeline:?\*{0,4}'
+    
+    # Pattern to match timeline entries:
+    # - (YYYY-MM-DD HH:MM:SS UTC) — Event description
+    # or (YYYY-MM-DD HH:MM:SS UTC) — Event description
+    entry_pattern = r'^[-•*]?\s*\(([^)]+)\)\s*[—\-–]+\s*(.+)$'
+    
+    lines = md_text.split('\n')
+    in_timeline = False
+    
+    for i, line in enumerate(lines):
+        # Check if this line is a timeline header
+        if re.search(timeline_header_pattern, line, re.IGNORECASE):
+            in_timeline = True
+            logger.info(f"Found timeline section at line {i+1}")
+            continue
+        
+        # If we're in a timeline section, try to parse entries
+        if in_timeline:
+            # Check if we've hit the next section (new header or blank line followed by header)
+            if line.strip().startswith('**') and not re.match(entry_pattern, line):
+                in_timeline = False
+                continue
+            
+            # Try to match a timeline entry
+            match = re.match(entry_pattern, line.strip())
+            if match:
+                datetime_str = match.group(1).strip()
+                event_desc = match.group(2).strip()
+                timeline_entries.append((datetime_str, event_desc))
+                logger.debug(f"Parsed timeline entry: {datetime_str} - {event_desc[:50]}")
+            elif line.strip() == '':
+                # Blank line might signal end of timeline
+                continue
+            elif line.strip() and not line.startswith(('**', '#')):
+                # Non-blank line that doesn't look like a section header
+                # might still be a timeline entry without list marker
+                match = re.match(r'^\(([^)]+)\)\s*[—\-–]+\s*(.+)$', line.strip())
+                if match:
+                    datetime_str = match.group(1).strip()
+                    event_desc = match.group(2).strip()
+                    timeline_entries.append((datetime_str, event_desc))
+                    logger.debug(f"Parsed timeline entry (no marker): {datetime_str} - {event_desc[:50]}")
+    
+    logger.info(f"Parsed {len(timeline_entries)} timeline entries")
+    return timeline_entries
+
+
+def generate_timeline_html(entries: list, heading: str = "Timeline") -> str:
+    """
+    Generate HTML for a visual timeline from parsed entries.
+    
+    Args:
+        entries: List of tuples [(datetime_str, event_description), ...]
+        heading: The heading text to display above the timeline
+    
+    Returns:
+        HTML string with styled timeline including heading
+    """
+    if not entries:
+        return ""
+    
+    html_parts = [f'<h3 class="timeline-heading">{heading}</h3>']
+    html_parts.append('<div class="timeline-container">')
+    
+    for i, (datetime_str, event) in enumerate(entries):
+        is_last = (i == len(entries) - 1)
+        line_class = '' if is_last else ' timeline-has-line'
+        html_parts.append(f'''
+    <div class="timeline-entry{line_class}">
+        <div class="timeline-marker-wrapper">
+            <div class="timeline-marker"></div>
+            {'' if is_last else '<div class="timeline-line"></div>'}
+        </div>
+        <div class="timeline-content">
+            <div class="timeline-time">{datetime_str}</div>
+            <div class="timeline-event">{event}</div>
+        </div>
+    </div>''')
+    
+    html_parts.append('</div>')
+    
+    return '\n'.join(html_parts)
+
+
+def process_timeline(md_text: str) -> str:
+    """
+    Detect timeline sections in markdown and replace them with visual HTML timelines.
+    
+    Args:
+        md_text: Markdown text that may contain timeline sections
+    
+    Returns:
+        Modified markdown with timeline sections replaced by HTML
+    """
+    # Parse timeline entries
+    timeline_entries = parse_timeline(md_text)
+    
+    if not timeline_entries:
+        logger.info("No timeline sections found")
+        return md_text
+    
+    # Pattern to match the entire timeline section
+    # Matches from the header through all the entries
+    timeline_section_pattern = r'\*{0,4}(Incident )?Timeline:?\*{0,4}\s*\n((?:[-•*]?\s*\([^)]+\)\s*[—\-–]+\s*.+\n?)+)'
+    
+    # Replace the timeline section with our HTML
+    def replace_timeline(match):
+        # Extract the heading type (Timeline or Incident Timeline)
+        incident_prefix = match.group(1) if match.group(1) else ""
+        heading = f"{incident_prefix}Timeline".strip()
+        
+        logger.info(f"Replacing timeline section with visual HTML timeline (heading: {heading})")
+        
+        # Generate HTML timeline with the appropriate heading
+        timeline_html = generate_timeline_html(timeline_entries, heading)
+        return f"\n\n{timeline_html}\n\n"
+    
+    md_text = re.sub(timeline_section_pattern, replace_timeline, md_text, flags=re.IGNORECASE | re.MULTILINE)
+    
+    return md_text
 
 
 def process_urls(md_text: str) -> str:
@@ -234,6 +437,10 @@ def clean_markdown(md_text: str) -> str:
     
     logger.info("Added blank lines before list items")
     logger.debug(f"After list formatting (first 500):\n{md_text[:500]}")
+    
+    # Process timeline sections before URL processing
+    md_text = process_timeline(md_text)
+    logger.debug(f"After timeline processing (first 500):\n{md_text[:500]}")
     
     # Process URLs for auto-linking
     md_text = process_urls(md_text)
