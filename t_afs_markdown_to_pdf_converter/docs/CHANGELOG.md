@@ -1,5 +1,16 @@
 # Change Log
 
+## 1.0.4 - 2025-11-17
+
+### Added
+* Support for timeline phases.
+
+### Fixed
+* Updated pip and OS packages to resolve vulnerabilities detected by Trivy.
+  - 10 Python vulnerabilities resolved.
+  - 39 Debian vulnerabilities resolved.
+* Resolved issue with blank page under timeline.
+
 ## 1.0.3 - 2025-11-17
 
 ### Added

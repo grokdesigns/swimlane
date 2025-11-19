@@ -2,6 +2,29 @@
 """
 Process Report Response - Markdown to PDF Converter
 Converts Markdown text to professionally styled PDF with AFS purple theme
+
+FONT INSTALLATION INSTRUCTIONS:
+To enable the enhanced typography, download and install these fonts:
+
+1. Inter font family:
+   - Download from: https://fonts.google.com/specimen/Inter
+   - Files needed: Inter-Light.ttf, Inter-Regular.ttf, Inter-SemiBold.ttf, Inter-Bold.ttf
+
+2. Montserrat font family (for headings):
+   - Download from: https://fonts.google.com/specimen/Montserrat
+   - Files needed: Montserrat-SemiBold.ttf, Montserrat-Bold.ttf
+
+3. JetBrains Mono (for code):
+   - Download from: https://fonts.google.com/specimen/JetBrains+Mono
+   - File needed: JetBrainsMono-Regular.ttf
+
+Place all font files in: /app/assets/fonts/
+(Create the fonts subdirectory if it doesn't exist)
+
+The Dockerfile should copy these fonts during build:
+COPY connector/assets/fonts /app/assets/fonts
+
+If fonts are not available, the system will fall back to system fonts.
 """
 
 from src.runner_override import RunnerOverride as RO
@@ -24,13 +47,63 @@ DEFAULT_FOOTER_LOGO = "AFS_wordmark_horizontal_purple.svg"
 DEFAULT_FOOTER_LOGO_HEIGHT_MM = 8.0
 
 THEME_CSS = r"""
+/* Local Font Faces - Place font files in /app/assets/fonts/ directory */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300;
+  src: url('/app/assets/fonts/Inter_18pt-Light.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/app/assets/fonts/Inter_18pt-Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  src: url('/app/assets/fonts/Inter_18pt-SemiBold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  src: url('/app/assets/fonts/Inter_18pt-Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 600;
+  src: url('/app/assets/fonts/Montserrat-SemiBold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 700;
+  src: url('/app/assets/fonts/Montserrat-Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/app/assets/fonts/JetBrainsMono-Regular.ttf') format('truetype');
+}
+
 @page {
   size: Letter;
   margin: 30mm 20mm 22mm;
 
   /* top rule + top-right title */
   @top-center { content: ""; display:block; height:1px; background:#5B2A86; opacity:.45; }
-  @top-right  { content: "{{ doc_title_css }}"; font-size:9pt; color:#555; vertical-align:middle; }
+  @top-right  { content: "{{ doc_title_css }}"; font-size:9pt; color:#555; vertical-align:middle; font-weight:600; }
 
   /* Footer: logo LEFT (data-URI), page counter RIGHT */
   @bottom-left  {
@@ -45,34 +118,173 @@ THEME_CSS = r"""
 }
 
 /* Body typography */
-html { font:300 11pt "Inter",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; color:#0f172a; line-height:1.55; }
-body { margin:0; }
+html {
+  font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 400;
+  font-size: 11pt;
+  color: #0f172a;
+  line-height: 1.6;
+}
+body { margin: 0; }
 
-h1 { font-size:22pt; color:#5B2A86; margin:0 0 .5em; }
-h2 { string-set: section content(); font-size:15pt; border-bottom:2px solid #5B2A86; padding-bottom:3pt; margin-top:1.5em; color:#2d2a2e; page-break-after:avoid; }
-h3 { font-size:13pt; color:#4a3a6b; margin-top:1em; page-break-after:avoid; }
+/* Headings with enhanced typography */
+h1 {
+  font-family: 'Montserrat', 'Inter', sans-serif;
+  font-size: 24pt;
+  font-weight: 700;
+  color: #5B2A86;
+  margin: 0 0 .5em;
+  letter-spacing: -0.02em;
+  text-shadow: 0 1px 2px rgba(91, 42, 134, 0.1);
+}
 
-p, li { color:#111; orphans:3; widows:3; }
-a { color:#5B2A86; text-decoration:none; }
-ul, ol { margin:.5em 0 .5em 1.2em; page-break-inside:avoid; page-break-before:avoid; }
-li { margin:.15em 0; }
+h2 {
+  string-set: section content();
+  font-family: 'Montserrat', 'Inter', sans-serif;
+  font-size: 16pt;
+  font-weight: 700;
+  border-bottom: 2px solid #5B2A86;
+  padding-bottom: 4pt;
+  margin-top: 1.8em;
+  margin-bottom: 0.8em;
+  color: #2d2a2e;
+  page-break-after: avoid;
+  letter-spacing: -0.01em;
+}
 
-blockquote { border-left:3px solid #5B2A86; margin:.8em 0; padding:.5em 1em; color:#444; background:#f9f7fc; }
+h3 {
+  font-family: 'Montserrat', 'Inter', sans-serif;
+  font-size: 13pt;
+  font-weight: 600;
+  color: #4a3a6b;
+  margin-top: 1.2em;
+  margin-bottom: 0.6em;
+  page-break-after: avoid;
+}
 
-table { width:100%; border-collapse:collapse; margin:1em 0; font-size:10.25pt; }
-th, td { border:1px solid #e2e2e7; padding:6pt 8pt; vertical-align:top; }
-th { background:#f2f0f8; color:#333; text-align:left; }
+/* Enhanced paragraph and list styling */
+p, li { color: #1e293b; orphans: 3; widows: 3; }
+p { margin: 0.6em 0; }
 
-pre, code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace; }
-pre { background:#0f172a; color:#e5e7eb; padding:8pt 10pt; border-radius:8px; overflow-x:auto; white-space:pre-wrap; word-wrap:break-word; }
-code { background:#f1f5f9; padding:1pt 3pt; border-radius:5px; word-wrap:break-word; }
-pre code { background:transparent; padding:0; color:inherit; }
+a { color: #5B2A86; text-decoration: none; font-weight: 500; }
+a:hover { text-decoration: underline; }
 
-strong, b { font-weight: 700; }
-em, i { font-style: italic; }
+ul, ol {
+  margin: .8em 0 .8em 1.2em;
+  page-break-inside: avoid;
+  page-break-before: avoid;
+}
 
-h2, h3, blockquote, table, pre { page-break-inside:avoid; }
-hr { border:none; border-top:1px solid #e2e8f0; margin:12pt 0; }
+li {
+  margin: .25em 0;
+  line-height: 1.5;
+}
+
+/* Enhanced blockquotes */
+blockquote {
+  border-left: 4px solid #5B2A86;
+  margin: 1em 0;
+  padding: .6em 1.2em;
+  color: #475569;
+  background: linear-gradient(to right, #f9f7fc, #ffffff);
+  border-radius: 0 4px 4px 0;
+  font-style: italic;
+}
+
+/* Enhanced table styling with zebra striping */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.2em 0;
+  font-size: 10pt;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+th, td {
+  border: 1px solid #e2e8f0;
+  padding: 8pt 10pt;
+  vertical-align: top;
+  text-align: left;
+}
+
+th {
+  background: linear-gradient(to bottom, #5B2A86, #4a2270);
+  color: #ffffff;
+  font-weight: 600;
+  text-align: left;
+  font-size: 10pt;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 9pt;
+}
+
+/* Zebra striping for table rows */
+tbody tr:nth-child(odd) {
+  background: #ffffff;
+}
+
+tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+tbody tr:hover {
+  background: #f1f5f9;
+}
+
+/* Enhanced code blocks with better styling */
+pre, code {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+pre {
+  background: linear-gradient(to bottom, #1e293b, #0f172a);
+  color: #e2e8f0;
+  padding: 12pt 14pt;
+  border-radius: 8px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  border-left: 4px solid #5B2A86;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  line-height: 1.5;
+  font-size: 9.5pt;
+}
+
+code {
+  background: #f1f5f9;
+  color: #5B2A86;
+  padding: 2pt 5pt;
+  border-radius: 4px;
+  word-wrap: break-word;
+  font-size: 9.5pt;
+  font-weight: 500;
+  border: 1px solid #e2e8f0;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  border: none;
+  font-weight: 400;
+}
+
+/* Enhanced emphasis */
+strong, b { font-weight: 700; color: #0f172a; }
+em, i { font-style: italic; color: #475569; }
+
+/* Page break controls */
+h2, h3, blockquote, table, pre { page-break-inside: avoid; }
+
+/* Enhanced horizontal rule */
+hr {
+  border: none;
+  border-top: 2px solid #e2e8f0;
+  margin: 16pt 0;
+  background: linear-gradient(to right, transparent, #e2e8f0, transparent);
+}
 
 /* Visual Timeline Styles */
 .timeline-heading {
@@ -81,12 +293,12 @@ hr { border:none; border-top:1px solid #e2e8f0; margin:12pt 0; }
   color: #2d2a2e;
   margin-top: 1em;
   margin-bottom: 0.8em;
+  page-break-after: avoid;
 }
 
 .timeline-container {
   margin: 0 0 1.5em 0;
   padding: 0;
-  page-break-inside: avoid;
 }
 
 .timeline-entry {
@@ -130,18 +342,61 @@ hr { border:none; border-top:1px solid #e2e8f0; margin:12pt 0; }
   padding-top: 0;
 }
 
+.timeline-time-row {
+  margin-bottom: 0.2em;
+  line-height: 1.4;
+}
+
 .timeline-time {
+  display: inline-block;
   font-size: 9.5pt;
   font-weight: 600;
   color: #5B2A86;
-  margin-bottom: 0.2em;
   letter-spacing: 0.3px;
+  vertical-align: middle;
 }
 
 .timeline-event {
   font-size: 10.5pt;
   color: #2d2a2e;
   line-height: 1.5;
+}
+
+.event-phase {
+  display: inline-block;
+  padding: 1.6pt 6.4pt;
+  border-radius: 9.6px;
+  font-size: 6.4pt;
+  font-weight: 600;
+  color: #1e293b;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+  margin-left: 0.8em;
+  vertical-align: middle;
+}
+
+.event-phase.preparation {
+  background: #99cfff;
+}
+
+.event-phase.detection {
+  background: #ffe082;
+}
+
+.event-phase.containment {
+  background: #f5a3a3;
+}
+
+.event-phase.eradication {
+  background: #a0d8e4;
+}
+
+.event-phase.recovery {
+  background: #a4d4ae;
+}
+
+.event-phase.post-incident {
+  background: #33cbb7;
 }
 """
 
@@ -197,17 +452,18 @@ def parse_timeline(md_text: str) -> list:
     Parse timeline entries from markdown text.
     Looks for sections titled "Timeline" or "Incident Timeline" followed by date/event entries.
     
-    Returns list of tuples: [(datetime_str, event_description), ...]
+    Returns list of tuples: [(datetime_str, phase, event_description), ...]
+    Phase can be None if not provided.
     """
     timeline_entries = []
     
     # Pattern to match timeline headers (case-insensitive)
     timeline_header_pattern = r'\*{0,4}(Incident )?Timeline:?\*{0,4}'
     
-    # Pattern to match timeline entries:
-    # - (YYYY-MM-DD HH:MM:SS UTC) — Event description
-    # or (YYYY-MM-DD HH:MM:SS UTC) — Event description
-    entry_pattern = r'^[-•*]?\s*\(([^)]+)\)\s*[—\-–]+\s*(.+)$'
+    # Pattern to match timeline entries with optional phase:
+    # - (YYYY-MM-DD HH:MM:SS UTC) [phase] — Event description
+    # or (YYYY-MM-DD HH:MM:SS UTC) — Event description (no phase)
+    entry_pattern = r'^[-•*]?\s*\(([^)]+)\)\s*(?:\[([^\]]+)\]\s*)?[—\-–]+\s*(.+)$'
     
     lines = md_text.split('\n')
     in_timeline = False
@@ -230,21 +486,25 @@ def parse_timeline(md_text: str) -> list:
             match = re.match(entry_pattern, line.strip())
             if match:
                 datetime_str = match.group(1).strip()
-                event_desc = match.group(2).strip()
-                timeline_entries.append((datetime_str, event_desc))
-                logger.debug(f"Parsed timeline entry: {datetime_str} - {event_desc[:50]}")
+                phase = match.group(2).strip().lower() if match.group(2) else None
+                event_desc = match.group(3).strip()
+                timeline_entries.append((datetime_str, phase, event_desc))
+                phase_info = f" [{phase}]" if phase else ""
+                logger.debug(f"Parsed timeline entry: {datetime_str}{phase_info} - {event_desc[:50]}")
             elif line.strip() == '':
                 # Blank line might signal end of timeline
                 continue
             elif line.strip() and not line.startswith(('**', '#')):
                 # Non-blank line that doesn't look like a section header
                 # might still be a timeline entry without list marker
-                match = re.match(r'^\(([^)]+)\)\s*[—\-–]+\s*(.+)$', line.strip())
+                match = re.match(r'^\(([^)]+)\)\s*(?:\[([^\]]+)\]\s*)?[—\-–]+\s*(.+)$', line.strip())
                 if match:
                     datetime_str = match.group(1).strip()
-                    event_desc = match.group(2).strip()
-                    timeline_entries.append((datetime_str, event_desc))
-                    logger.debug(f"Parsed timeline entry (no marker): {datetime_str} - {event_desc[:50]}")
+                    phase = match.group(2).strip().lower() if match.group(2) else None
+                    event_desc = match.group(3).strip()
+                    timeline_entries.append((datetime_str, phase, event_desc))
+                    phase_info = f" [{phase}]" if phase else ""
+                    logger.debug(f"Parsed timeline entry (no marker): {datetime_str}{phase_info} - {event_desc[:50]}")
     
     logger.info(f"Parsed {len(timeline_entries)} timeline entries")
     return timeline_entries
@@ -255,7 +515,8 @@ def generate_timeline_html(entries: list, heading: str = "Timeline") -> str:
     Generate HTML for a visual timeline from parsed entries.
     
     Args:
-        entries: List of tuples [(datetime_str, event_description), ...]
+        entries: List of tuples [(datetime_str, phase, event_description), ...]
+                 Phase can be None if not provided.
         heading: The heading text to display above the timeline
     
     Returns:
@@ -267,9 +528,18 @@ def generate_timeline_html(entries: list, heading: str = "Timeline") -> str:
     html_parts = [f'<h3 class="timeline-heading">{heading}</h3>']
     html_parts.append('<div class="timeline-container">')
     
-    for i, (datetime_str, event) in enumerate(entries):
+    for i, (datetime_str, phase, event) in enumerate(entries):
         is_last = (i == len(entries) - 1)
         line_class = '' if is_last else ' timeline-has-line'
+        
+        # Build phase pill HTML if phase is provided
+        phase_html = ''
+        if phase:
+            # Ensure phase is lowercase and matches CSS class names
+            phase_class = phase.lower().replace(' ', '-')
+            phase_display = phase.replace('-', ' ').title()
+            phase_html = f'<span class="event-phase {phase_class}">{phase_display}</span>'
+        
         html_parts.append(f'''
     <div class="timeline-entry{line_class}">
         <div class="timeline-marker-wrapper">
@@ -277,7 +547,10 @@ def generate_timeline_html(entries: list, heading: str = "Timeline") -> str:
             {'' if is_last else '<div class="timeline-line"></div>'}
         </div>
         <div class="timeline-content">
-            <div class="timeline-time">{datetime_str}</div>
+            <div class="timeline-time-row">
+                <div class="timeline-time">{datetime_str}</div>
+                {phase_html}
+            </div>
             <div class="timeline-event">{event}</div>
         </div>
     </div>''')
@@ -305,8 +578,8 @@ def process_timeline(md_text: str) -> str:
         return md_text
     
     # Pattern to match the entire timeline section
-    # Matches from the header through all the entries
-    timeline_section_pattern = r'\*{0,4}(Incident )?Timeline:?\*{0,4}\s*\n((?:[-•*]?\s*\([^)]+\)\s*[—\-–]+\s*.+\n?)+)'
+    # Matches from the header through all the entries (including optional phase markers)
+    timeline_section_pattern = r'\*{0,4}(Incident )?Timeline:?\*{0,4}\s*\n((?:[-•*]?\s*\([^)]+\)\s*(?:\[[^\]]+\]\s*)?[—\-–]+\s*.+\n?)+)'
     
     # Replace the timeline section with our HTML
     def replace_timeline(match):

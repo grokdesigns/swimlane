@@ -16,14 +16,14 @@ meta:
   publishConfig:
     access: public
   buildConfig:
-    template: python_311_definition
+    template: python_312_definition
   block_short_desc_update: false
   block_readme_update: false
   block_external_md_update: false
   block_external_yml_update: false
 repository: https://github.com/swimlane-connectors/t_afs_markdown_to_pdf_converter
 title: AFS Markdown to PDF Converter
-version: 1.0.3
+version: 1.0.4
 runConfig:
   inputs:
     type: stdin
