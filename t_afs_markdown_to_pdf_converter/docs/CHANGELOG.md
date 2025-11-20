@@ -1,18 +1,33 @@
 # Change Log
 
+## 1.1.6 - 2025-11-20
+
+### Added
+* Create link for all MITRE ATT&CK techniques
+
 ## 1.1.5 - 2025-11-20
+
+### Fixed
 * Fix for URL processing in MITRE list
 
 ## 1.1.4 - 2025-11-20
+
+### Fixed
 * Fix for processing nested lists of MITRE techniques
 
 ## 1.1.3 - 2025-11-20
+
+### Fixed
 * Second fix for MITRE comment parsing/addition
 
 ## 1.1.2 - 2025-11-20
+
+### Fixed
 * Resolved issue with parsing MITRE and Timeline inputs
 
 ## 1.1.1 - 2025-11-20
+
+### Fixed
 * Resolved issues with timeline parsing
 
 ## 1.1.0 - 2025-11-20

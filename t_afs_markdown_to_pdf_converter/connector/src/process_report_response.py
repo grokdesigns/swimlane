@@ -526,6 +526,49 @@ def enhance_mitre_techniques_html(html_str: str, mitre_lookup: dict) -> str:
     return str(soup)
 
 
+def link_mitre_techniques_html(html_str: str) -> str:
+    """Convert MITRE ATT&CK technique IDs to clickable links."""
+    logger.info("Adding links to MITRE ATT&CK technique IDs")
+    
+    soup = BeautifulSoup(html_str, 'html.parser')
+    
+    links_added = 0
+    
+    for element in soup.find_all(string=re.compile(r'\bT\d+(?:\.\d+)?(?![\d\.])\b')):
+        if element.parent.name == 'a':
+            continue
+        
+        text = str(element)
+        new_content = []
+        last_end = 0
+        
+        for match in re.finditer(r'\b(T\d+(?:\.\d+)?)\b', text):
+            tech_id = match.group(1)
+            start, end = match.span()
+            
+            if start > last_end:
+                new_content.append(text[last_end:start])
+            
+            url_tech_id = tech_id.replace('.', '/')
+            url = f"https://attack.mitre.org/techniques/{url_tech_id}/"
+            
+            link_tag = soup.new_tag('a', href=url, target="_blank")
+            link_tag.string = tech_id
+            new_content.append(link_tag)
+            
+            links_added += 1
+            last_end = end
+        
+        if last_end < len(text):
+            new_content.append(text[last_end:])
+        
+        if new_content:
+            element.replace_with(*new_content)
+    
+    logger.info(f"Added {links_added} MITRE technique links")
+    return str(soup)
+
+
 def enhance_timeline_html(html_str: str, timeline_lookup: dict = None) -> str:
     """Find timeline sections in HTML and replace them with visual timeline HTML."""
     if timeline_lookup is None:
@@ -793,6 +836,7 @@ def md_to_html(md_text: str, mitre_lookup: dict = None, timeline_lookup: dict = 
     
     html_str = enhance_timeline_html(html_str, timeline_lookup)
     html_str = enhance_mitre_techniques_html(html_str, mitre_lookup)
+    html_str = link_mitre_techniques_html(html_str)
     
     return html_str
 

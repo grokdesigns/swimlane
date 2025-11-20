@@ -23,7 +23,7 @@ meta:
   block_external_yml_update: false
 repository: https://github.com/swimlane-connectors/t_afs_markdown_to_pdf_converter
 title: AFS Markdown to PDF Converter
-version: 1.1.5
+version: 1.1.6
 runConfig:
   inputs:
     type: stdin
