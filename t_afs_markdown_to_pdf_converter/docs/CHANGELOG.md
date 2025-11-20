@@ -1,5 +1,11 @@
 # Change Log
 
+## 1.1.2 - 2025-11-20
+* Resolved issue with parsing MITRE and Timeline inputs
+
+## 1.1.1 - 2025-11-20
+* Resolved issues with timeline parsing
+
 ## 1.1.0 - 2025-11-20
 
 ### Added
