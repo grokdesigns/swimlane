@@ -648,7 +648,7 @@ def process_urls(md_text: str) -> str:
     """Convert bare URLs into clickable markdown links."""
     logger.info("Processing URLs for auto-linking")
     
-    url_pattern = r'(?<!\()(https?://[^\s<>\)]+)(?!\))'
+    url_pattern = r'(?<!\[)(?<!\()(https?://[^\s<>\)\]]+)(?!\))(?!\])'
     
     def replace_url(match):
         url = match.group(1)

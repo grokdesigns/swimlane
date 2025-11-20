@@ -1,5 +1,8 @@
 # Change Log
 
+## 1.1.5 - 2025-11-20
+* Fix for URL processing in MITRE list
+
 ## 1.1.4 - 2025-11-20
 * Fix for processing nested lists of MITRE techniques
 
