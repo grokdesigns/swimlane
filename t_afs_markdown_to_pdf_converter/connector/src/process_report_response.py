@@ -506,6 +506,9 @@ def enhance_mitre_techniques_html(html_str: str, mitre_lookup: dict) -> str:
     comments_added = 0
     
     for li in soup.find_all('li'):
+        if li.find(['ul', 'ol']):
+            continue
+        
         li_text = li.get_text()
         tech_matches = re.findall(r'\b(T\d+(?:\.\d+)?)\b', li_text)
         

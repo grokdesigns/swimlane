@@ -1,5 +1,8 @@
 # Change Log
 
+## 1.1.4 - 2025-11-20
+* Fix for processing nested lists of MITRE techniques
+
 ## 1.1.3 - 2025-11-20
 * Second fix for MITRE comment parsing/addition
 
