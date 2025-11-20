@@ -19,6 +19,14 @@ inputs:
       title: Include Timestamp
       description: Add generation timestamp to the document header
       default: true
+    mitreTechniques:
+      type: string
+      title: MITRE ATT&CK Techniques (JSON)
+      description: JSON string containing MITRE techniques with optional comments, organized by tactic
+    timelineEvents:
+      type: string
+      title: Timeline Events (JSON)
+      description: JSON string containing timeline events with date and phase information
   required:
     - markdown_text
 output:

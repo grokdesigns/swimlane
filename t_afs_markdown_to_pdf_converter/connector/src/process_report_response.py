@@ -30,6 +30,7 @@ If fonts are not available, the system will fall back to system fonts.
 from src.runner_override import RunnerOverride as RO
 import base64
 import datetime as dt
+import json
 import os
 import re
 from typing import Optional
@@ -447,67 +448,265 @@ def _data_uri_for_logo(logo_filename: str) -> Optional[str]:
     return None
 
 
-def parse_timeline(md_text: str) -> list:
+def parse_mitre_techniques_json(mitre_json_str: str) -> dict:
     """
-    Parse timeline entries from markdown text.
-    Looks for sections titled "Timeline" or "Incident Timeline" followed by date/event entries.
+    Parse MITRE techniques JSON and create a lookup dictionary.
     
-    Returns list of tuples: [(datetime_str, phase, event_description), ...]
-    Phase can be None if not provided.
+    Args:
+        mitre_json_str: JSON string containing MITRE techniques organized by tactic
+    
+    Returns:
+        Dictionary mapping technique IDs to their comments
+        Example: {"T1190": "Test", "T1078.004": None}
     """
-    timeline_entries = []
+    if not mitre_json_str or not mitre_json_str.strip():
+        return {}
     
-    # Pattern to match timeline headers (case-insensitive)
-    timeline_header_pattern = r'\*{0,4}(Incident )?Timeline:?\*{0,4}'
-    
-    # Pattern to match timeline entries with optional phase:
-    # - (YYYY-MM-DD HH:MM:SS UTC) [phase] — Event description
-    # or (YYYY-MM-DD HH:MM:SS UTC) — Event description (no phase)
-    entry_pattern = r'^[-•*]?\s*\(([^)]+)\)\s*(?:\[([^\]]+)\]\s*)?[—\-–]+\s*(.+)$'
-    
-    lines = md_text.split('\n')
-    in_timeline = False
-    
-    for i, line in enumerate(lines):
-        # Check if this line is a timeline header
-        if re.search(timeline_header_pattern, line, re.IGNORECASE):
-            in_timeline = True
-            logger.info(f"Found timeline section at line {i+1}")
-            continue
+    try:
+        mitre_data = json.loads(mitre_json_str)
+        technique_lookup = {}
         
-        # If we're in a timeline section, try to parse entries
-        if in_timeline:
-            # Check if we've hit the next section (new header or blank line followed by header)
-            if line.strip().startswith('**') and not re.match(entry_pattern, line):
-                in_timeline = False
+        for tactic, techniques in mitre_data.items():
+            if not isinstance(techniques, list):
                 continue
             
-            # Try to match a timeline entry
-            match = re.match(entry_pattern, line.strip())
+            for tech in techniques:
+                if not isinstance(tech, dict):
+                    continue
+                
+                technique_str = tech.get('technique', '')
+                # Extract technique ID (e.g., "T1190" from "T1190 - Exploit Public-Facing Application")
+                technique_match = re.match(r'^(T\d+(?:\.\d+)?)', technique_str)
+                if technique_match:
+                    tech_id = technique_match.group(1)
+                    comment = tech.get('comment')
+                    technique_lookup[tech_id] = comment
+                    logger.debug(f"Loaded MITRE technique: {tech_id} with comment: {comment}")
+        
+        logger.info(f"Loaded {len(technique_lookup)} MITRE techniques from JSON")
+        return technique_lookup
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse MITRE techniques JSON: {e}")
+        return {}
+    except Exception as e:
+        logger.error(f"Error processing MITRE techniques: {e}")
+        return {}
+
+
+def parse_timeline_events_json(timeline_json_str: str) -> dict:
+    """
+    Parse timeline events JSON and create a lookup dictionary.
+    
+    Args:
+        timeline_json_str: JSON string containing timeline events
+    
+    Returns:
+        Dictionary mapping timestamps to phase information
+        Example: {"2025-11-15T23:48": "detection"}
+    """
+    if not timeline_json_str or not timeline_json_str.strip():
+        return {}
+    
+    try:
+        timeline_data = json.loads(timeline_json_str)
+        timeline_lookup = {}
+        
+        if not isinstance(timeline_data, list):
+            logger.warning("Timeline JSON is not an array")
+            return {}
+        
+        for event in timeline_data:
+            if not isinstance(event, dict):
+                continue
+            
+            date = event.get('date', '')
+            phase = event.get('phase')
+            
+            if date:
+                # Normalize timestamp for matching (remove timezone info for comparison)
+                normalized_date = date.replace('Z', '').strip()
+                timeline_lookup[normalized_date] = phase
+                logger.debug(f"Loaded timeline event: {normalized_date} -> {phase}")
+        
+        logger.info(f"Loaded {len(timeline_lookup)} timeline events from JSON")
+        return timeline_lookup
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse timeline events JSON: {e}")
+        return {}
+    except Exception as e:
+        logger.error(f"Error processing timeline events: {e}")
+        return {}
+
+
+def enhance_mitre_techniques_html(html_str: str, mitre_lookup: dict) -> str:
+    """
+    Enhance MITRE technique references in HTML with comments from JSON.
+    This operates on the HTML after markdown conversion, which is more reliable
+    than trying to manipulate markdown syntax.
+    
+    Args:
+        html_str: HTML string containing MITRE techniques as links
+        mitre_lookup: Dictionary mapping technique IDs to comments
+    
+    Returns:
+        Enhanced HTML with comments added to MITRE techniques
+    """
+    if not mitre_lookup:
+        logger.info("No MITRE technique enhancements to apply")
+        return html_str
+    
+    logger.info("Enhancing MITRE technique references in HTML with comments")
+    
+    soup = BeautifulSoup(html_str, 'html.parser')
+    
+    # Find all links that contain MITRE technique patterns
+    for link in soup.find_all('a', href=True):
+        # Check if this is a MITRE ATT&CK link
+        if 'attack.mitre.org/techniques/' in link.get('href', ''):
+            # Extract technique ID from link text
+            link_text = link.get_text()
+            tech_match = re.match(r'^(T\d+(?:\.\d+)?)', link_text)
+            
+            if tech_match:
+                tech_id = tech_match.group(1)
+                comment = mitre_lookup.get(tech_id)
+                
+                if comment:
+                    logger.debug(f"Adding comment to {tech_id}: {comment}")
+                    
+                    # Find the parent list item
+                    parent_li = link.find_parent('li')
+                    if parent_li:
+                        # Add comment at the end of the list item as emphasized text
+                        comment_tag = soup.new_tag('em')
+                        comment_tag.string = f" (Comment: {comment})"
+                        
+                        # Append to the end of the list item
+                        parent_li.append(comment_tag)
+                        logger.debug(f"Added comment to {tech_id} in list item")
+                    else:
+                        # If not in a list, add after the link's parent paragraph
+                        parent_p = link.find_parent('p')
+                        if parent_p:
+                            comment_tag = soup.new_tag('em')
+                            comment_tag.string = f" (Comment: {comment})"
+                            parent_p.append(comment_tag)
+                            logger.debug(f"Added comment to {tech_id} in paragraph")
+    
+    logger.info("MITRE technique enhancement complete")
+    return str(soup)
+
+
+def enhance_timeline_html(html_str: str, timeline_lookup: dict = None) -> str:
+    """
+    Find timeline sections in HTML and replace them with visual timeline HTML.
+    Works on the HTML DOM using BeautifulSoup for reliable parsing.
+    
+    Args:
+        html_str: HTML string that may contain timeline sections
+        timeline_lookup: Optional dictionary mapping timestamps to phases from JSON
+    
+    Returns:
+        Enhanced HTML with visual timelines replacing plain lists
+    """
+    if timeline_lookup is None:
+        timeline_lookup = {}
+    
+    soup = BeautifulSoup(html_str, 'html.parser')
+    
+    # Find all headings/paragraphs that contain "Timeline"
+    timeline_headers = []
+    for tag in soup.find_all(['p', 'h2', 'h3', 'h4']):
+        text = tag.get_text()
+        if re.search(r'(Incident\s+)?Timeline:?', text, re.IGNORECASE):
+            timeline_headers.append(tag)
+    
+    if not timeline_headers:
+        logger.info("No timeline sections found in HTML")
+        return html_str
+    
+    logger.info(f"Found {len(timeline_headers)} timeline section(s) in HTML")
+    
+    # Process each timeline section
+    for header in timeline_headers:
+        # Extract heading text
+        heading_match = re.search(r'((?:Incident\s+)?Timeline)', header.get_text(), re.IGNORECASE)
+        heading = heading_match.group(1) if heading_match else "Timeline"
+        
+        # Find the next sibling list (ul or ol)
+        next_sibling = header.find_next_sibling()
+        timeline_list = None
+        while next_sibling and next_sibling.name not in ['ul', 'ol']:
+            next_sibling = next_sibling.find_next_sibling()
+        
+        if next_sibling and next_sibling.name in ['ul', 'ol']:
+            timeline_list = next_sibling
+        
+        if not timeline_list:
+            logger.debug(f"No list found after timeline header: {heading}")
+            continue
+        
+        # Parse timeline entries from this list
+        timeline_entries = []
+        for li in timeline_list.find_all('li', recursive=False):
+            text = li.get_text()
+            # Pattern: (YYYY-MM-DD HH:MM:SS UTC) — Event description
+            match = re.match(r'^\(([^)]+)\)\s*[—\-–]+\s*(.+)$', text.strip())
             if match:
                 datetime_str = match.group(1).strip()
-                phase = match.group(2).strip().lower() if match.group(2) else None
-                event_desc = match.group(3).strip()
+                event_desc = match.group(2).strip()
+                
+                # Strip out any " (Phase: xxx)" text from event description
+                event_desc = re.sub(r'\s*\(Phase:\s*[^)]+\)\s*$', '', event_desc, flags=re.IGNORECASE).strip()
+                
+                # Look up phase in JSON by matching timestamp
+                phase = None
+                if timeline_lookup:
+                    normalized_time = datetime_str.replace(' UTC', '').replace(' ', 'T').strip()
+                    for key in timeline_lookup:
+                        if normalized_time in key or key in normalized_time:
+                            phase = timeline_lookup[key]
+                            logger.debug(f"Matched timeline phase: {datetime_str} -> {phase}")
+                            break
+                
                 timeline_entries.append((datetime_str, phase, event_desc))
-                phase_info = f" [{phase}]" if phase else ""
-                logger.debug(f"Parsed timeline entry: {datetime_str}{phase_info} - {event_desc[:50]}")
-            elif line.strip() == '':
-                # Blank line might signal end of timeline
-                continue
-            elif line.strip() and not line.startswith(('**', '#')):
-                # Non-blank line that doesn't look like a section header
-                # might still be a timeline entry without list marker
-                match = re.match(r'^\(([^)]+)\)\s*(?:\[([^\]]+)\]\s*)?[—\-–]+\s*(.+)$', line.strip())
-                if match:
-                    datetime_str = match.group(1).strip()
-                    phase = match.group(2).strip().lower() if match.group(2) else None
-                    event_desc = match.group(3).strip()
-                    timeline_entries.append((datetime_str, phase, event_desc))
-                    phase_info = f" [{phase}]" if phase else ""
-                    logger.debug(f"Parsed timeline entry (no marker): {datetime_str}{phase_info} - {event_desc[:50]}")
+        
+        if timeline_entries:
+            # Generate the visual timeline HTML
+            timeline_html = generate_timeline_html(timeline_entries, heading)
+            
+            # Parse the timeline HTML and insert it
+            timeline_soup = BeautifulSoup(timeline_html, 'html.parser')
+            
+            # Replace the header with our timeline
+            header.replace_with(timeline_soup)
+            
+            # Remove the original list
+            timeline_list.decompose()
+            
+            logger.info(f"Replaced timeline section '{heading}' with visual timeline ({len(timeline_entries)} events)")
+        else:
+            logger.warning(f"No valid timeline entries found in list for header: {heading}")
     
-    logger.info(f"Parsed {len(timeline_entries)} timeline entries")
-    return timeline_entries
+    return str(soup)
+
+
+def strip_seconds_from_timestamp(timestamp: str) -> str:
+    """
+    Remove seconds from a timestamp string while preserving the format.
+    
+    Args:
+        timestamp: Timestamp string (e.g., "2025-11-09 11:12:00 UTC" or "2025-11-09T11:12:00")
+    
+    Returns:
+        Timestamp without seconds (e.g., "2025-11-09 11:12 UTC" or "2025-11-09T11:12")
+    """
+    # Pattern to match and remove :SS from timestamps
+    # Handles both space-separated (2025-11-09 11:12:00 UTC) and T-separated (2025-11-09T11:12:00) formats
+    timestamp = re.sub(r'(:\d{2})(:\d{2})', r'\1', timestamp)
+    return timestamp
 
 
 def generate_timeline_html(entries: list, heading: str = "Timeline") -> str:
@@ -529,6 +728,8 @@ def generate_timeline_html(entries: list, heading: str = "Timeline") -> str:
     html_parts.append('<div class="timeline-container">')
     
     for i, (datetime_str, phase, event) in enumerate(entries):
+        # Strip seconds from timestamp for display
+        display_time = strip_seconds_from_timestamp(datetime_str)
         is_last = (i == len(entries) - 1)
         line_class = '' if is_last else ' timeline-has-line'
         
@@ -548,7 +749,7 @@ def generate_timeline_html(entries: list, heading: str = "Timeline") -> str:
         </div>
         <div class="timeline-content">
             <div class="timeline-time-row">
-                <div class="timeline-time">{datetime_str}</div>
+                <div class="timeline-time">{display_time}</div>
                 {phase_html}
             </div>
             <div class="timeline-event">{event}</div>
@@ -560,42 +761,6 @@ def generate_timeline_html(entries: list, heading: str = "Timeline") -> str:
     return '\n'.join(html_parts)
 
 
-def process_timeline(md_text: str) -> str:
-    """
-    Detect timeline sections in markdown and replace them with visual HTML timelines.
-    
-    Args:
-        md_text: Markdown text that may contain timeline sections
-    
-    Returns:
-        Modified markdown with timeline sections replaced by HTML
-    """
-    # Parse timeline entries
-    timeline_entries = parse_timeline(md_text)
-    
-    if not timeline_entries:
-        logger.info("No timeline sections found")
-        return md_text
-    
-    # Pattern to match the entire timeline section
-    # Matches from the header through all the entries (including optional phase markers)
-    timeline_section_pattern = r'\*{0,4}(Incident )?Timeline:?\*{0,4}\s*\n((?:[-•*]?\s*\([^)]+\)\s*(?:\[[^\]]+\]\s*)?[—\-–]+\s*.+\n?)+)'
-    
-    # Replace the timeline section with our HTML
-    def replace_timeline(match):
-        # Extract the heading type (Timeline or Incident Timeline)
-        incident_prefix = match.group(1) if match.group(1) else ""
-        heading = f"{incident_prefix}Timeline".strip()
-        
-        logger.info(f"Replacing timeline section with visual HTML timeline (heading: {heading})")
-        
-        # Generate HTML timeline with the appropriate heading
-        timeline_html = generate_timeline_html(timeline_entries, heading)
-        return f"\n\n{timeline_html}\n\n"
-    
-    md_text = re.sub(timeline_section_pattern, replace_timeline, md_text, flags=re.IGNORECASE | re.MULTILINE)
-    
-    return md_text
 
 
 def process_urls(md_text: str) -> str:
@@ -622,14 +787,19 @@ def process_urls(md_text: str) -> str:
     return md_text
 
 
-def clean_markdown(md_text: str) -> str:
+def clean_markdown(md_text: str, mitre_lookup: dict = None, timeline_lookup: dict = None) -> str:
     """
     Pre-process markdown text to fix common formatting issues:
     - Normalizes excessive asterisks (****text**** → **text**)
     - Closes unclosed bold markers in list items
     - Adds blank lines before lists for proper parsing
     - Converts bare URLs to markdown auto-links
+    - Enriches timeline with phase information from JSON
+    
+    Note: MITRE technique enhancement happens after HTML conversion for better reliability
     """
+    if timeline_lookup is None:
+        timeline_lookup = {}
     original_length = len(md_text)
     logger.info(f"Starting markdown cleaning: {original_length} characters")
     logger.debug(f"First 500 chars:\n{md_text[:500]}")
@@ -711,10 +881,6 @@ def clean_markdown(md_text: str) -> str:
     logger.info("Added blank lines before list items")
     logger.debug(f"After list formatting (first 500):\n{md_text[:500]}")
     
-    # Process timeline sections before URL processing
-    md_text = process_timeline(md_text)
-    logger.debug(f"After timeline processing (first 500):\n{md_text[:500]}")
-    
     # Process URLs for auto-linking
     md_text = process_urls(md_text)
     logger.debug(f"After URL processing (first 500):\n{md_text[:500]}")
@@ -724,15 +890,35 @@ def clean_markdown(md_text: str) -> str:
     return md_text
 
 
-def md_to_html(md_text: str) -> str:
-    """Convert markdown to HTML with cleaning and formatting"""
-    cleaned_md = clean_markdown(md_text)
+def md_to_html(md_text: str, mitre_lookup: dict = None, timeline_lookup: dict = None) -> str:
+    """
+    Convert markdown to HTML with cleaning and formatting.
+    Enhancements (timeline and MITRE) are done on the HTML DOM for reliability.
+    """
+    if mitre_lookup is None:
+        mitre_lookup = {}
+    if timeline_lookup is None:
+        timeline_lookup = {}
+    
+    # Clean markdown (timeline and MITRE enhancements happen after HTML conversion)
+    cleaned_md = clean_markdown(md_text, mitre_lookup, timeline_lookup)
+    
+    # Convert markdown to HTML
     html = markdown(cleaned_md, extensions=["extra", "sane_lists", "smarty", "nl2br"], output_format="html5")
-    return str(BeautifulSoup(html, "html.parser"))
+    html_str = str(BeautifulSoup(html, "html.parser"))
+    
+    # Enhance timelines in HTML (find and replace with visual timelines)
+    html_str = enhance_timeline_html(html_str, timeline_lookup)
+    
+    # Enhance MITRE techniques in HTML (add comments from JSON)
+    html_str = enhance_mitre_techniques_html(html_str, mitre_lookup)
+    
+    return html_str
 
 
 def build_document_html(markdown_text: str, document_title: str, include_timestamp: bool,
-                        footer_logo_data: Optional[str], footer_logo_height_mm: float) -> str:
+                        footer_logo_data: Optional[str], footer_logo_height_mm: float,
+                        mitre_lookup: dict = None, timeline_lookup: dict = None) -> str:
     """Build complete HTML document with AFS purple theme styling"""
     css = Template(THEME_CSS).render(
         doc_title_css=(document_title or "Report").replace('"', '\\"'),
@@ -741,7 +927,7 @@ def build_document_html(markdown_text: str, document_title: str, include_timesta
     )
     return Template(HTML_TEMPLATE).render(
         css=css,
-        content=md_to_html(markdown_text),
+        content=md_to_html(markdown_text, mitre_lookup, timeline_lookup),
         doc_title=document_title or "Report",
         show_timestamp=bool(include_timestamp),
         timestamp=dt.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
@@ -761,7 +947,8 @@ class RunnerOverride(RO):
         Convert markdown text to PDF with professional styling.
         
         Args:
-            inputs: Dictionary containing markdown_text, document_title, include_timestamp
+            inputs: Dictionary containing markdown_text, document_title, include_timestamp,
+                    mitreTechniques (JSON), timelineEvents (JSON)
             action_schema: Action schema definition
             
         Returns:
@@ -771,6 +958,8 @@ class RunnerOverride(RO):
             markdown_text = inputs.get('markdown_text', '')
             document_title = inputs.get('document_title', 'Security Report')
             include_timestamp = inputs.get('include_timestamp', True)
+            mitre_techniques_json = inputs.get('mitreTechniques', '')
+            timeline_events_json = inputs.get('timelineEvents', '')
             
             # Validate inputs
             if not markdown_text or not markdown_text.strip():
@@ -792,6 +981,11 @@ class RunnerOverride(RO):
                 }
             
             self.logger.info(f"Converting Markdown to PDF: '{document_title}' ({len(markdown_text)} characters)")
+            
+            # Parse optional JSON inputs
+            mitre_lookup = parse_mitre_techniques_json(mitre_techniques_json)
+            timeline_lookup = parse_timeline_events_json(timeline_events_json)
+            
             self.logger.debug("Pre-processing markdown to clean formatting issues")
             
             footer_logo_data = _data_uri_for_logo(DEFAULT_FOOTER_LOGO)
@@ -802,7 +996,9 @@ class RunnerOverride(RO):
                 document_title,
                 include_timestamp,
                 footer_logo_data,
-                DEFAULT_FOOTER_LOGO_HEIGHT_MM
+                DEFAULT_FOOTER_LOGO_HEIGHT_MM,
+                mitre_lookup,
+                timeline_lookup
             )
             
             self.logger.debug("Generating PDF document")

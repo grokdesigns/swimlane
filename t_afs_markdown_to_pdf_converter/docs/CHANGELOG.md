@@ -1,5 +1,29 @@
 # Change Log
 
+## 1.1.0 - 2025-11-20
+
+### Added
+* Support for JSON-based timeline and MITRE technique enhancement
+  - New optional `timelineEvents` JSON input for matching timeline timestamps to phases
+  - New optional `mitreTechniques` JSON input for adding comments to MITRE ATT&CK technique references
+  - Timeline phases are now sourced exclusively from JSON data for reliability
+  - MITRE technique comments are automatically appended to technique descriptions in italics
+
+### Changed
+* **Architecture improvement**: Both timeline and MITRE enhancements now work on HTML DOM using BeautifulSoup
+  - Previously attempted to manipulate markdown text with regex, which was fragile
+  - Now converts markdown to HTML first, then enhances the DOM structure
+  - Provides reliable, consistent processing without markdown syntax conflicts
+* Timeline timestamp display now omits seconds for cleaner presentation
+  - Example: `2025-11-09 11:12 UTC` instead of `2025-11-09 11:12:00 UTC`
+* Phase indicators in markdown (e.g., " (Phase: xxx)") are now stripped from event descriptions
+  - Phases are added to the visual timeline based solely on JSON lookup data
+
+### Fixed
+* Timeline phase detection now works reliably with JSON data instead of parsing markdown text
+* MITRE technique comments are correctly positioned at the end of technique descriptions
+* Eliminated issues with markdown syntax interference (asterisks, brackets) during enhancement
+
 ## 1.0.4 - 2025-11-17
 
 ### Added
