@@ -35,7 +35,7 @@ ENTRYPOINT ["python", "run.py"]
 FROM ${RUNTIME_IMAGE} AS connector-image
 LABEL org.opencontainers.image.title="AFS Markdown to PDF Converter"
 LABEL org.opencontainers.image.description="Converts Markdown text to styled PDF documents"
-LABEL org.opencontainers.image.version="1.1.2"
+LABEL org.opencontainers.image.version="1.1.3"
 LABEL org.opencontainers.image.authors="Chris Caraccioli"
 LABEL org.opencontainers.image.licenses="AGPL-3.0"
 LABEL org.opencontainers.image.url="https://swimlane.com"

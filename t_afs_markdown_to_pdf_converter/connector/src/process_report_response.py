@@ -500,48 +500,26 @@ def enhance_mitre_techniques_html(html_str: str, mitre_lookup: dict) -> str:
         return html_str
     
     logger.info(f"Enhancing MITRE technique references in HTML with {len(mitre_lookup)} techniques")
-    logger.debug(f"MITRE lookup: {mitre_lookup}")
     
     soup = BeautifulSoup(html_str, 'html.parser')
     
-    mitre_links_found = 0
     comments_added = 0
     
-    for link in soup.find_all('a', href=True):
-        if 'attack.mitre.org/techniques/' in link.get('href', ''):
-            mitre_links_found += 1
-            link_text = link.get_text()
-            logger.debug(f"Found MITRE link: {link_text}")
-            tech_match = re.match(r'^(T\d+(?:\.\d+)?)', link_text)
-            
-            if tech_match:
-                tech_id = tech_match.group(1)
+    for li in soup.find_all('li'):
+        li_text = li.get_text()
+        tech_matches = re.findall(r'\b(T\d+(?:\.\d+)?)\b', li_text)
+        
+        if tech_matches:
+            for tech_id in tech_matches:
                 comment = mitre_lookup.get(tech_id)
-                logger.debug(f"Extracted technique ID: {tech_id}, comment: {comment}")
-                
                 if comment:
-                    logger.debug(f"Adding comment to {tech_id}: {comment}")
                     comments_added += 1
-                    
-                    parent_li = link.find_parent('li')
-                    if parent_li:
-                        comment_tag = soup.new_tag('em')
-                        comment_tag.string = f" (Comment: {comment})"
-                        parent_li.append(comment_tag)
-                        logger.debug(f"Added comment to {tech_id} in list item")
-                    else:
-                        parent_p = link.find_parent('p')
-                        if parent_p:
-                            comment_tag = soup.new_tag('em')
-                            comment_tag.string = f" (Comment: {comment})"
-                            parent_p.append(comment_tag)
-                            logger.debug(f"Added comment to {tech_id} in paragraph")
-                else:
-                    logger.debug(f"No comment found for {tech_id}")
-            else:
-                logger.warning(f"Could not extract technique ID from link text: {link_text}")
+                    comment_tag = soup.new_tag('em')
+                    comment_tag.string = f" (Comment: {comment})"
+                    li.append(comment_tag)
+                    break
     
-    logger.info(f"MITRE technique enhancement complete: Found {mitre_links_found} MITRE links, added {comments_added} comments")
+    logger.info(f"MITRE technique enhancement complete: added {comments_added} comments")
     return str(soup)
 
 

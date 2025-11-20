@@ -1,5 +1,8 @@
 # Change Log
 
+## 1.1.3 - 2025-11-20
+* Second fix for MITRE comment parsing/addition
+
 ## 1.1.2 - 2025-11-20
 * Resolved issue with parsing MITRE and Timeline inputs
 
