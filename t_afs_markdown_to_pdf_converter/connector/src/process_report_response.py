@@ -885,6 +885,44 @@ def clean_markdown(md_text: str, mitre_lookup: dict = None, timeline_lookup: dic
     md_text = process_urls(md_text)
     logger.debug(f"After URL processing (first 500):\n{md_text[:500]}")
     
+    # Convert paragraph-based timeline entries to list format
+    # Find lines that look like timeline entries: (YYYY-MM-DD HH:MM:SS UTC) — ...
+    # that don't already start with a list marker
+    lines = md_text.split('\n')
+    result_lines = []
+    prev_line = ''
+    first_timeline_entry = True
+    
+    for line in lines:
+        stripped = line.strip()
+        # Check if this is a timeline entry without a list marker
+        if re.match(r'^\(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+UTC\)', stripped):
+            # This is a timeline entry - ensure it has a list marker
+            if not re.match(r'^\s*[-*+•]\s+', line):
+                # If this is the first timeline entry and the previous line is a heading,
+                # insert a blank line first to ensure proper markdown list parsing
+                if first_timeline_entry and prev_line.strip() and not prev_line.strip() == '':
+                    # Check if previous line looks like a heading (contains "Timeline" or ends with ":")
+                    if 'timeline' in prev_line.lower() or prev_line.strip().endswith(':'):
+                        result_lines.append('')  # Add blank line
+                        logger.debug("Inserted blank line before timeline list")
+                
+                first_timeline_entry = False
+                
+                # Add list marker
+                indent = len(line) - len(stripped)
+                line = ' ' * indent + '- ' + stripped
+                logger.debug(f"Added list marker to timeline entry: {stripped[:60]}...")
+        else:
+            # Reset first_timeline_entry flag if we encounter a non-timeline line
+            first_timeline_entry = True
+        
+        result_lines.append(line)
+        prev_line = line
+    
+    md_text = '\n'.join(result_lines)
+    logger.info("Converted paragraph-based timeline entries to list format")
+    
     logger.info(f"Markdown cleaning complete: {len(md_text)} characters")
     
     return md_text
